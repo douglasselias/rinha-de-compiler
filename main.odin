@@ -19,13 +19,14 @@ TokenType :: enum {
   // Single-character tokens.
   LEFT_PAREN, RIGHT_PAREN,
   LEFT_BRACE, RIGHT_BRACE,
-  MINUS, PLUS,
+  MINUS, PLUS, ASTERISK, SLASH,
+  MODULO,
   COMMA,
   SEMICOLON,
 
   // One or two character tokens.
   BANG, BANG_EQUAL,
-  EQUAL, EQUAL_EQUAL,
+  EQUAL, EQUAL_EQUAL, NOT_EQUAL,
   GREATER, GREATER_EQUAL,
   LESS, LESS_EQUAL,
   ARROW,
@@ -66,7 +67,7 @@ is_number :: proc(char: rune) -> bool {
 }
 
 main :: proc() {
-  data, ok := os.read_entire_file("examples/combination.rinha", context.allocator)
+  data, ok := os.read_entire_file("examples/ops.rinha", context.allocator)
 	if !ok { return }
 	defer delete(data, context.allocator)
 
@@ -89,10 +90,15 @@ main :: proc() {
         case '+': append(&tokens, Token{TokenType.PLUS, "+"})
         case ',': append(&tokens, Token{TokenType.COMMA, ","})
         case ';': append(&tokens, Token{TokenType.SEMICOLON, ";"})
+        case '*': append(&tokens, Token{TokenType.ASTERISK, "*"})
+        case '/': append(&tokens, Token{TokenType.SLASH, "/"})
+        case '%': append(&tokens, Token{TokenType.MODULO, "%"})
 
-        // case '!':
-        //   index += 1
-        //   add_token(rune(line[index]) == '=' ? TokenType.BANG_EQUAL : TokenType.BANG)
+        case '!':
+          if rune(line[index]) == '=' {
+            append(&tokens, Token{TokenType.NOT_EQUAL, "!="})
+            index += 1 // Skip second token
+          }
         case '=':
           if rune(line[index]) == '=' {
             append(&tokens, Token{TokenType.EQUAL_EQUAL, "=="})
@@ -120,6 +126,11 @@ main :: proc() {
         case '|':
           if rune(line[index]) == '|' {
             append(&tokens, Token{TokenType.OR, "||"})
+            index += 1 // Skip second token
+          }
+        case '&':
+          if rune(line[index]) == '&' {
+            append(&tokens, Token{TokenType.AND, "&&"})
             index += 1 // Skip second token
           }
         case '"':
@@ -198,7 +209,7 @@ main :: proc() {
       case TokenType.SEMICOLON:
         append(&program, "\n")
       case TokenType.PRINT:
-        append(&program, "puts")
+        append(&program, "\nputs")
       case TokenType.STRING:
         // @review: should capture " ?
         append(&program, strings.concatenate({"\"", tokens[index].lexeme, "\""}))
