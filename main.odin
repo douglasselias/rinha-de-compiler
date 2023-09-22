@@ -2,13 +2,10 @@ package rinha
 
 import "core:os"
 import "core:strings"
-import "core:fmt"
-import "core:text/match"
-
 import "core:c"
+import "core:fmt"
 
 foreign import lib "stdlib"
-
 
 @(default_calling_convention="c")
 foreign lib {
@@ -36,8 +33,6 @@ TokenType :: enum {
 
   // Keywords.
   AND, OR, 
-  // TRUE, FALSE, NIL, 
-  // FOR,
   PRINT, LET, IF, ELSE, FN,
 
   EOF,
@@ -67,7 +62,7 @@ is_number :: proc(char: rune) -> bool {
 }
 
 main :: proc() {
-  data, ok := os.read_entire_file("examples/tuple.rinha", context.allocator)
+  data, ok := os.read_entire_file(os.args[1], context.allocator)
 	if !ok { return }
 	defer delete(data, context.allocator)
 
@@ -189,7 +184,6 @@ main :: proc() {
     }
 	}
 
-  // @review
   if os.exists("build/program.rb") {
     os.remove("build/program.rb")
   }
@@ -230,7 +224,6 @@ end
           append(&program, tokens[index].lexeme)
         }
       case TokenType.STRING:
-        // @review: should capture " ?
         append(&program, strings.concatenate({"\"", tokens[index].lexeme, "\""}))
       case TokenType.LET:
         if tokens[index + 3].type == TokenType.FN {
@@ -293,7 +286,5 @@ end
 
   os.close(fd)
 
-  // @add: compile time log
-  fmt.println("Running program...")
   system("ruby build/program.rb")
 }
