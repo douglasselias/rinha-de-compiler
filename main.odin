@@ -31,7 +31,7 @@ TokenType :: enum {
   ARROW,
 
   // Literals.
-  IDENTIFIER, STRING, NUMBER,
+  IDENTIFIER, STRING, INT, FLOAT,
 
   // Keywords.
   // AND, FALSE, FOR, NIL, OR, TRUE,
@@ -45,6 +45,7 @@ keywords := map[string]TokenType {
 	"if" = TokenType.IF,
 	"else" = TokenType.ELSE,
   "fn" = TokenType.FN,
+  "let" = TokenType.LET,
 }
 
 Token :: struct {
@@ -52,14 +53,18 @@ Token :: struct {
   lexeme: string,
 }
 
-is_letter :: proc(char : rune) -> bool {
+is_letter :: proc(char: rune) -> bool {
   return (char >= 'a' && char <= 'z') || 
          (char >= 'A' && char <= 'Z') || 
          char == '_'
 }
 
+is_number :: proc(char: rune) -> bool {
+  return char >= '0' && char <= '9'
+}
+
 main :: proc() {
-  data, ok := os.read_entire_file("examples/print.rinha", context.allocator)
+  data, ok := os.read_entire_file("examples/sum.rinha", context.allocator)
 	if !ok { return }
 	defer delete(data, context.allocator)
 
@@ -78,18 +83,13 @@ main :: proc() {
         case ')': append(&tokens, Token{TokenType.RIGHT_PAREN, ")"})
         case '{': append(&tokens, Token{TokenType.LEFT_BRACE, "{"})
         case '}': append(&tokens, Token{TokenType.RIGHT_BRACE, "}"})
-        // case ',': add_token(TokenType.COMMA)
-        // case '.': add_token(TokenType.DOT)
         case '-': append(&tokens, Token{TokenType.MINUS, "-"})
         case '+': append(&tokens, Token{TokenType.PLUS, "+"})
-        // case ';': add_token(TokenType.SEMICOLON)
-        // case '*': add_token(TokenType.STAR)
 
         // case '!':
         //   index += 1
         //   add_token(rune(line[index]) == '=' ? TokenType.BANG_EQUAL : TokenType.BANG)
         case '=':
-          index += 1 // @review bound check?
           if rune(line[index]) == '=' {
             append(&tokens, Token{TokenType.EQUAL_EQUAL, "=="})
           } else if rune(line[index]) == '>' {
@@ -97,6 +97,8 @@ main :: proc() {
           } else {
             append(&tokens, Token{TokenType.EQUAL, "="})
           }
+          // Skip already read token
+          index += 1
 
         // case '<':
         //   index += 1
@@ -120,17 +122,35 @@ main :: proc() {
           append(&tokens, Token{TokenType.STRING, strings.to_string(builder)})
 
         case:
-          if is_letter(char) {
+          if is_number(char) {
             builder := strings.builder_make()
             strings.write_rune(&builder, char)
 
-            next_char := char
-            for index < len(line) && is_letter(next_char) {
-              next_char = rune(line[index])
-              strings.write_rune(&builder, next_char)
-              index += 1
+            for index < len(line) {
+              char = rune(line[index])
+              if is_number(char) || char == '.' {
+                strings.write_rune(&builder, char)
+                index += 1
+              } else { break }
             }
-            // index -= 1
+
+            number := strings.trim(strings.to_string(builder), " ")
+            if strings.contains_rune(number, '.') {
+              append(&tokens, Token{TokenType.FLOAT, number})
+            } else {
+              append(&tokens, Token{TokenType.INT, number})
+            }
+          } else if is_letter(char) {
+            builder := strings.builder_make()
+            strings.write_rune(&builder, char)
+
+            for index < len(line) {
+              char = rune(line[index])
+              if is_letter(char) {
+                strings.write_rune(&builder, char)
+                index += 1
+              } else { break }
+            }
 
             identifier := strings.trim(strings.to_string(builder), " ")
             if identifier in keywords {
@@ -138,8 +158,6 @@ main :: proc() {
             } else {
               append(&tokens, Token{TokenType.IDENTIFIER, identifier})
             }
-
-            // fmt.println(strings.to_string(builder))
           }
       }
     }
@@ -180,6 +198,6 @@ main :: proc() {
 
   os.close(fd)
 
-  fmt.println("Running program...")
-  system("odin run build/program.odin -file")
+  // fmt.println("Running program...")
+  // system("odin run build/program.odin -file")
 }
