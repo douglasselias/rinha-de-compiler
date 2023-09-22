@@ -59,7 +59,7 @@ is_letter :: proc(char : rune) -> bool {
 }
 
 main :: proc() {
-  data, ok := os.read_entire_file("sum.rinha", context.allocator)
+  data, ok := os.read_entire_file("examples/print.rinha", context.allocator)
 	if !ok { return }
 	defer delete(data, context.allocator)
 
@@ -150,11 +150,12 @@ main :: proc() {
   }
 
   // @review
-  if os.exists("program.odin") {
-    os.remove("program.odin")
+  if os.exists("build/program.odin") {
+    os.remove("build/program.odin")
   }
 
-  fd, error := os.open("program.odin", os.O_CREATE | os.O_RDWR, 777)
+  system("mkdir -p build")
+  fd, error := os.open("build/program.odin", os.O_CREATE | os.O_RDWR, 777)
   
   os.write_string(fd, "package program\nimport \"core:fmt\"\n")
   os.write_string(fd, "main :: proc() {\n")
@@ -179,6 +180,6 @@ main :: proc() {
 
   os.close(fd)
 
-  // fmt.println("Running program...")
-  // system("odin run program.odin -file")
+  fmt.println("Running program...")
+  system("odin run build/program.odin -file")
 }
