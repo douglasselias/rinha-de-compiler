@@ -1,0 +1,12 @@
+let t = (10, 20)
+
+print(first(t))
+print("\n")
+print(second(t))
+print("\n")
+print((30, 40))
+print("\n")
+print(first((30, 40)))
+print("\n")
+print(second((30, 40)))
+print("\n")

@@ -67,7 +67,7 @@ is_number :: proc(char: rune) -> bool {
 }
 
 main :: proc() {
-  data, ok := os.read_entire_file("examples/ops.rinha", context.allocator)
+  data, ok := os.read_entire_file("examples/tuple.rinha", context.allocator)
 	if !ok { return }
 	defer delete(data, context.allocator)
 
@@ -189,10 +189,6 @@ main :: proc() {
     }
 	}
 
-  for token in tokens {
-    // fmt.printf("%s: %s\n", token.type, token.lexeme)
-  }
-
   // @review
   if os.exists("build/program.rb") {
     os.remove("build/program.rb")
@@ -200,6 +196,18 @@ main :: proc() {
 
   system("mkdir -p build")
   fd, error := os.open("build/program.rb", os.O_CREATE | os.O_RDWR, 777)
+  os.write_string(fd, `def create_tuple(fst, snd)
+  return [fst, snd]
+end
+
+def first(tuple)
+  return tuple[0]
+end
+
+def second(tuple)
+  return tuple[1]
+end
+`)
   
   program := [dynamic]string {}
 
@@ -209,17 +217,32 @@ main :: proc() {
       case TokenType.SEMICOLON:
         append(&program, "\n")
       case TokenType.PRINT:
-        append(&program, "\nputs")
+        append(&program, "\nprint")
+        if tokens[index + 2].type == TokenType.LEFT_PAREN {
+          append(&program, "(create_tuple(")
+          index += 3 // First
+          append(&program, tokens[index].lexeme)
+          index += 1 // Comma
+          append(&program, tokens[index].lexeme)
+          index += 1 // Second
+          append(&program, tokens[index].lexeme)
+          index += 1 // Right paren
+          append(&program, tokens[index].lexeme)
+        }
       case TokenType.STRING:
         // @review: should capture " ?
         append(&program, strings.concatenate({"\"", tokens[index].lexeme, "\""}))
       case TokenType.LET:
         if tokens[index + 3].type == TokenType.FN {
-          // append(&program, "=")
           append(&program, "def ")
           index += 1
           append(&program, tokens[index].lexeme)
           index += 2 // Skip = token
+        } else if tokens[index + 3].type == TokenType.LEFT_PAREN {
+          index += 1
+          append(&program, tokens[index].lexeme)
+          append(&program, " = create_tuple(")
+          index += 2// Skip = token
         }
     
       case TokenType.LEFT_BRACE:
@@ -231,12 +254,27 @@ main :: proc() {
       case TokenType.ARROW: fallthrough
       case TokenType.FN: 
         append(&program, " ")
-      case TokenType.LEFT_PAREN: fallthrough
-      case TokenType.RIGHT_PAREN: fallthrough
-      case TokenType.INT: fallthrough
-      case TokenType.FLOAT: fallthrough
+      case TokenType.LEFT_PAREN: append(&program, tokens[index].lexeme)
+      case TokenType.RIGHT_PAREN: append(&program, tokens[index].lexeme)
+      case TokenType.INT: append(&program, tokens[index].lexeme)
+      case TokenType.FLOAT: append(&program, tokens[index].lexeme)
+      case TokenType.COMMA: append(&program, tokens[index].lexeme)
       case TokenType.IDENTIFIER:
         append(&program, tokens[index].lexeme)
+
+        if index + 2 < len(tokens) && tokens[index + 2].type == TokenType.LEFT_PAREN {
+          index += 1
+          append(&program, tokens[index].lexeme)
+          append(&program, "(create_tuple(")
+          index += 2 // First
+          append(&program, tokens[index].lexeme)
+          index += 1 // Comma
+          append(&program, tokens[index].lexeme)
+          index += 1 // Second
+          append(&program, tokens[index].lexeme)
+          index += 1 // Right paren
+          append(&program, "))")
+        }
       case TokenType.ELSE: fallthrough
       case TokenType.IF:
         append(&program, strings.concatenate({"\n", tokens[index].lexeme, " "}))
