@@ -19,9 +19,9 @@ TokenType :: enum {
   // Single-character tokens.
   LEFT_PAREN, RIGHT_PAREN,
   LEFT_BRACE, RIGHT_BRACE,
-  // COMMA, DOT,
   MINUS, PLUS,
-  // SEMICOLON, SLASH, STAR,
+  COMMA,
+  SEMICOLON,
 
   // One or two character tokens.
   BANG, BANG_EQUAL,
@@ -34,7 +34,9 @@ TokenType :: enum {
   IDENTIFIER, STRING, INT, FLOAT,
 
   // Keywords.
-  // AND, FALSE, FOR, NIL, OR, TRUE,
+  AND, OR, 
+  // TRUE, FALSE, NIL, 
+  // FOR,
   PRINT, LET, IF, ELSE, FN,
 
   EOF,
@@ -64,7 +66,7 @@ is_number :: proc(char: rune) -> bool {
 }
 
 main :: proc() {
-  data, ok := os.read_entire_file("examples/sum.rinha", context.allocator)
+  data, ok := os.read_entire_file("examples/combination.rinha", context.allocator)
 	if !ok { return }
 	defer delete(data, context.allocator)
 
@@ -85,6 +87,8 @@ main :: proc() {
         case '}': append(&tokens, Token{TokenType.RIGHT_BRACE, "}"})
         case '-': append(&tokens, Token{TokenType.MINUS, "-"})
         case '+': append(&tokens, Token{TokenType.PLUS, "+"})
+        case ',': append(&tokens, Token{TokenType.COMMA, ","})
+        case ';': append(&tokens, Token{TokenType.SEMICOLON, ";"})
 
         // case '!':
         //   index += 1
@@ -92,21 +96,32 @@ main :: proc() {
         case '=':
           if rune(line[index]) == '=' {
             append(&tokens, Token{TokenType.EQUAL_EQUAL, "=="})
+            index += 1 // Skip second token
           } else if rune(line[index]) == '>' {
             append(&tokens, Token{TokenType.ARROW, "=>"})
+            index += 1 // Skip second token
           } else {
             append(&tokens, Token{TokenType.EQUAL, "="})
           }
-          // Skip already read token
-          index += 1
-
-        // case '<':
-        //   index += 1
-        //   add_token(rune(line[index]) == '=' ? TokenType.LESS_EQUAL : TokenType.LESS)
-        // case '>':
-        //   index += 1
-        //   add_token(rune(line[index]) == '=' ? TokenType.GREATER_EQUAL : TokenType.GREATER)
-
+        case '<':
+          if rune(line[index]) == '=' {
+            append(&tokens, Token{TokenType.LESS_EQUAL, "<="})
+            index += 1 // Skip second token
+          } else {
+            append(&tokens, Token{TokenType.LESS, "<"})
+          }
+        case '>':
+          if rune(line[index]) == '=' {
+            append(&tokens, Token{TokenType.GREATER_EQUAL, ">="})
+            index += 1 // Skip second token
+          } else {
+            append(&tokens, Token{TokenType.GREATER, ">"})
+          }
+        case '|':
+          if rune(line[index]) == '|' {
+            append(&tokens, Token{TokenType.OR, "||"})
+            index += 1 // Skip second token
+          }
         case '"':
           builder := strings.builder_make()
 
@@ -164,40 +179,72 @@ main :: proc() {
 	}
 
   for token in tokens {
-    fmt.printf("%s: %s\n", token.type, token.lexeme)
+    // fmt.printf("%s: %s\n", token.type, token.lexeme)
   }
 
   // @review
-  if os.exists("build/program.odin") {
-    os.remove("build/program.odin")
+  if os.exists("build/program.rb") {
+    os.remove("build/program.rb")
   }
 
   system("mkdir -p build")
-  fd, error := os.open("build/program.odin", os.O_CREATE | os.O_RDWR, 777)
+  fd, error := os.open("build/program.rb", os.O_CREATE | os.O_RDWR, 777)
   
-  os.write_string(fd, "package program\nimport \"core:fmt\"\n")
-  os.write_string(fd, "main :: proc() {\n")
+  program := [dynamic]string {}
 
-  for token in tokens {
-    #partial switch token.type {
+  index := 0
+  for index < len(tokens) {
+    #partial switch tokens[index].type {
+      case TokenType.SEMICOLON:
+        append(&program, "\n")
       case TokenType.PRINT:
-        os.write_string(fd, "fmt.")
-        os.write_string(fd, token.lexeme)
+        append(&program, "puts")
       case TokenType.STRING:
-        os.write_string(fd, "\"")
-        os.write_string(fd, token.lexeme)
-        os.write_string(fd, "\"")
-      case TokenType.LEFT_PAREN:
-        os.write_string(fd, "(")
-      case TokenType.RIGHT_PAREN:
-        os.write_string(fd, ")")
+        // @review: should capture " ?
+        append(&program, strings.concatenate({"\"", tokens[index].lexeme, "\""}))
+      case TokenType.LET:
+        if tokens[index + 3].type == TokenType.FN {
+          // append(&program, "=")
+          append(&program, "def ")
+          index += 1
+          append(&program, tokens[index].lexeme)
+          index += 2 // Skip = token
+        }
+    
+      case TokenType.LEFT_BRACE:
+        append(&program, " \n")
+      case TokenType.RIGHT_BRACE:
+        if tokens[index + 1].type != TokenType.ELSE {
+          append(&program, "\nend\n")
+        }
+      case TokenType.ARROW: fallthrough
+      case TokenType.FN: 
+        append(&program, " ")
+      case TokenType.LEFT_PAREN: fallthrough
+      case TokenType.RIGHT_PAREN: fallthrough
+      case TokenType.INT: fallthrough
+      case TokenType.FLOAT: fallthrough
+      case TokenType.IDENTIFIER:
+        append(&program, tokens[index].lexeme)
+      case TokenType.ELSE: fallthrough
+      case TokenType.IF:
+        append(&program, strings.concatenate({"\n", tokens[index].lexeme, " "}))
+      case TokenType.EQUAL: fallthrough
+      case TokenType.EQUAL_EQUAL: fallthrough
+      case: 
+        append(&program, strings.concatenate({" ", tokens[index].lexeme, " "}))
+        
     }
+    index += 1
   }
 
-  os.write_string(fd, "\n}")
+  for token in program {
+    os.write_string(fd, token)
+  }
 
   os.close(fd)
 
-  // fmt.println("Running program...")
-  // system("odin run build/program.odin -file")
+  // @add: compile time log
+  fmt.println("Running program...")
+  system("ruby build/program.rb")
 }
