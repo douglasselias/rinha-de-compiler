@@ -3,6 +3,8 @@ FROM archlinux:latest
 RUN pacman -Syu ruby --noconfirm && \
     gem install --no-document colorize
 
+RUN mkdir /var/rinha
+WORKDIR /var/rinha
 COPY . .
 
-ENTRYPOINT ["./rinha-de-compiler"]
+ENTRYPOINT ["/var/rinha/rinha-de-compiler", "/var/rinha/source.rinha"]
