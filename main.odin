@@ -62,6 +62,10 @@ is_number :: proc(char: rune) -> bool {
 }
 
 main :: proc() {
+  if len(os.args) < 2 {
+    fmt.println("File path not provided as cmd argument, see readme for more details")
+    return
+  } 
   data, ok := os.read_entire_file(os.args[1], context.allocator)
 	if !ok { return }
 	defer delete(data, context.allocator)
